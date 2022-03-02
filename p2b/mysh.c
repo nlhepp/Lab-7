@@ -63,33 +63,104 @@ main(int argc, char** argv) {
    * handle it yet. I saw something about 512 chars in the description
    * */
   int argnum = 2; // name of the proc and null
-  char inputstr[100];
+  char inputstr[513]; 
   char *prompt = "mysh> ";
   char *escstr = "exit";
+  FILE *batchInput; // batch file reference if needed
 
-  if (argc > 2){
-    return -1;
+  // if more than 2 args just exit
+  if (argc > 2) {
+    write(2, "Usage: mysh [batch-file]\n", 25);
+    exit(1);
   }
-  // here we just loop for the shell until the exit command it found
-  while (1) {
-    write(1, prompt, strlen(prompt));
-    // again I am not sure exactly how to handle extra long input yet
-    fgets(inputstr, 513, stdin);
+
+// BATCH MODE
+  if (argc == 2){
+    // try to open file.  If it fails return
+    if ((batchInput = fopen(argv[1], "r")) == NULL) {
+      printf("Error: Cannot open file %s.\n", argv[1]); // TODO Change to write?
+      exit(1);
+    }
+    while (1) {
+
+      // if end of file, exit
+      if (fgets(inputstr, 513, stdin) == NULL) {
+        write(1, "\n", 1);
+        exit(0);
+      }
+
+      // Dealing with input over 512
+      // if last char of inputstr is not a newline then continue to next input
+      // flush extra buffer inside before continuing
+      if (inputstr[strlen(inputstr) - 1] != '\n') {
+        // TODO Specification says we should still echo here
+        while (!strchr(inputstr, '\n')) {
+          fgets(inputstr, 513, stdin);
+        }
+      continue;
+      }
+
     // duplicating the input string so we have the copy while being able to parse and modify the original
     char *cpin = strdup(inputstr);
+
     // there may be a better way to remove the final newline char, but this works for now
     inputstr[strlen(inputstr)-1] = '\0';
     char *tokens = strdup(inputstr);
+
     // check if the escape string was entered
-    if (strcmp(inputstr, escstr) == 0) {
+    if (strcmp(inputstr, escstr) == 0 ) {
       free(cpin);
       write(1, "escape str found\n", 18);
       return 0;
     }
+    free(cpin);
+    free(tokens);
+    }
+
+    return -1;
+  }
+
+// INTERACTIVE
+  // loop for the shell until the exit command or Ctrl-D is found
+  while (1) {
+    // print prompt to user
+    write(1, prompt, strlen(prompt));
+    
+    // get input from user & detect Ctrl D/EOF
+    if (fgets(inputstr, 513, stdin) == NULL) {
+      write(1, "\n", 1);
+      exit(0);
+    }
+
+    // Dealing with input over 512
+    // if last char of inputstr is not a newline then continue to next input
+    // flush extra buffer inside before continuing
+    if (inputstr[strlen(inputstr) - 1] != '\n') {
+      while (!strchr(inputstr, '\n')) {
+        fgets(inputstr, 513, stdin);
+      }
+      continue;
+    }
+    
+    // duplicating the input string so we have the copy while being able to parse and modify the original
+    char *cpin = strdup(inputstr);
+    
+    // there may be a better way to remove the final newline char, but this works for now
+    inputstr[strlen(inputstr)-1] = '\0';
+    char *tokens = strdup(inputstr);
+
+    // check if the escape string was entered
+    if (strcmp(inputstr, escstr) == 0 ) {
+      free(cpin);
+      write(1, "escape str found\n", 18);
+      return 0;
+    }
+
     // find how many args have been input and print result
     argnum = 0;
     char *token = strtok(inputstr, " ");
     
+    // What is the point of this?
     while( token != NULL){
       argnum ++;
       //printf("arg %d = %s\n", argnum-1, token);
